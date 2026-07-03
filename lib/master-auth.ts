@@ -17,7 +17,15 @@ function getMasterUsername() {
 
 function getMasterPasswordHash() {
   const fromEnv = process.env["MASTER_PASSWORD_HASH"]?.trim();
-  return fromEnv || DEFAULT_MASTER_PASSWORD_HASH;
+  if (fromEnv) {
+    if (!fromEnv.startsWith("$2") || fromEnv.length < 59) {
+      console.error(
+        "[master-auth] MASTER_PASSWORD_HASH inválido ou truncado — use aspas no .env.production ou rode: npm run master:set -- SUA_SENHA"
+      );
+    }
+    return fromEnv;
+  }
+  return DEFAULT_MASTER_PASSWORD_HASH;
 }
 
 function getMasterJwtSecret() {
