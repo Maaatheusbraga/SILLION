@@ -1,7 +1,8 @@
 "use client";
 
-import { Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { FileSpreadsheet, Upload, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLeads } from "@/lib/hooks/useLeads";
 
 type ImportMode = "active" | "new";
@@ -10,6 +11,7 @@ const BASE_NAME_PLACEHOLDER = "Ex.: João Pessoa · Clínicas de estética";
 
 export function ImportButton() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const { refresh, activeDatasetId, activeDataset, setActiveDatasetId } =
     useLeads();
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,22 @@ export function ImportButton() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [importMode, setImportMode] = useState<ImportMode>("new");
   const [baseName, setBaseName] = useState("");
+
+  const dialogOpen = pendingFile !== null;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (dialogOpen && !dialog.open) dialog.showModal();
+    if (!dialogOpen && dialog.open) dialog.close();
+  }, [dialogOpen]);
+
+  function closeDialog() {
+    if (loading) return;
+    setPendingFile(null);
+    setBaseName("");
+    setImportMode("new");
+  }
 
   async function runImport(file: File, mode: ImportMode, name: string) {
     setLoading(true);
@@ -59,6 +77,7 @@ export function ImportButton() {
       setMessage(parts.join(" · "));
       setPendingFile(null);
       setBaseName("");
+      setImportMode("new");
       await refresh();
     } catch {
       setMessage("Falha ao importar arquivo.");
@@ -72,6 +91,7 @@ export function ImportButton() {
     setPendingFile(file);
     setImportMode("new");
     setBaseName("");
+    setMessage(null);
   }
 
   const canImport =
@@ -80,7 +100,7 @@ export function ImportButton() {
       : baseName.trim().length > 0;
 
   return (
-    <div className="relative">
+    <>
       <input
         ref={inputRef}
         type="file"
@@ -104,130 +124,155 @@ export function ImportButton() {
         </span>
       </button>
 
-      {pendingFile && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/40"
-            onClick={() => !loading && setPendingFile(null)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-labelledby="import-dialog-title"
-            className="sillion-card fixed left-1/2 top-1/2 z-50 max-h-[min(90dvh,100%)] w-[min(calc(100vw-2rem),420px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl"
-          >
-            <h3
-              id="import-dialog-title"
-              className="text-base font-semibold text-ink"
-            >
-              Importar planilha
-            </h3>
-            <p className="mt-1 text-sm text-muted">
-              Arquivo:{" "}
-              <span className="text-ink">{pendingFile.name}</span>
-            </p>
+      <dialog
+        ref={dialogRef}
+        onClose={closeDialog}
+        className="sillion-dialog sillion-dialog--import fixed inset-0 z-[100] rounded-xl border border-border bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-black/60 open:flex open:flex-col"
+      >
+        {pendingFile && (
+          <>
+            <div className="flex items-start justify-between border-b border-border-subtle px-5 py-4">
+              <div className="min-w-0 pr-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-primary">
+                  Importar planilha
+                </p>
+                <h2
+                  id="import-dialog-title"
+                  className="mt-1 text-lg font-semibold text-balance"
+                >
+                  Onde salvar os leads?
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeDialog}
+                disabled={loading}
+                className="rounded-md p-1 text-muted hover:bg-surface-elevated hover:text-ink disabled:opacity-60"
+                aria-label="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-            <div className="mt-4 space-y-2">
-              <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle p-3 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5">
-                <input
-                  type="radio"
-                  name="importMode"
-                  checked={importMode === "new"}
-                  onChange={() => setImportMode("new")}
-                  className="mt-0.5"
+            <div className="space-y-5 px-5 py-5">
+              <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-3">
+                <FileSpreadsheet
+                  size={22}
+                  className="shrink-0 text-primary"
+                  aria-hidden
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-ink">
-                    Nova base
-                  </span>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    Partição isolada — ideal para trocar de campanha ou região.
-                  </span>
-                </span>
-              </label>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted">Arquivo</p>
+                  <p className="truncate text-sm font-medium text-ink">
+                    {pendingFile.name}
+                  </p>
+                </div>
+              </div>
 
-              {activeDatasetId && (
-                <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle p-3 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5">
+              <fieldset className="space-y-2">
+                <legend className="mb-1 text-sm font-medium text-ink">
+                  Destino da importação
+                </legend>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
                   <input
                     type="radio"
                     name="importMode"
-                    checked={importMode === "active"}
-                    onChange={() => setImportMode("active")}
-                    className="mt-0.5"
+                    checked={importMode === "new"}
+                    onChange={() => setImportMode("new")}
+                    className="mt-1"
                   />
-                  <span>
-                    <span className="block text-sm font-medium text-ink">
-                      Adicionar à base atual
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink">
+                      Nova base
                     </span>
-                    <span className="mt-0.5 block text-xs text-muted">
-                      {activeDataset
-                        ? `"${activeDataset.name}" (${activeDataset.leadCount} leads)`
-                        : "Base ativa"}
+                    <span className="mt-1 block text-sm leading-relaxed text-muted">
+                      Cria uma partição isolada — ideal para campanha ou região
+                      diferente.
                     </span>
                   </span>
                 </label>
+
+                {activeDatasetId && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      checked={importMode === "active"}
+                      onChange={() => setImportMode("active")}
+                      className="mt-1"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-ink">
+                        Adicionar à base atual
+                      </span>
+                      <span className="mt-1 block text-sm leading-relaxed text-muted">
+                        {activeDataset
+                          ? `Unifica com "${activeDataset.name}" (${activeDataset.leadCount} leads). Duplicados por place_id são ignorados.`
+                          : "Base ativa selecionada no topo."}
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </fieldset>
+
+              {importMode === "new" && (
+                <div>
+                  <label
+                    htmlFor="import-base-name"
+                    className="mb-1.5 block text-sm font-medium text-ink"
+                  >
+                    Nome da base
+                  </label>
+                  <input
+                    id="import-base-name"
+                    type="text"
+                    value={baseName}
+                    onChange={(e) => setBaseName(e.target.value)}
+                    placeholder={BASE_NAME_PLACEHOLDER}
+                    autoFocus
+                    className="w-full rounded-md border border-border bg-surface-elevated px-3 py-3 text-sm placeholder:text-muted focus:border-primary"
+                  />
+                  <p className="mt-2 text-xs leading-relaxed text-muted">
+                    Use região e nicho para achar depois no seletor de bases.
+                  </p>
+                </div>
               )}
             </div>
 
-            {importMode === "new" && (
-              <div className="mt-4">
-                <label
-                  htmlFor="import-base-name"
-                  className="mb-1.5 block text-sm font-medium text-ink"
-                >
-                  Nome da base
-                </label>
-                <input
-                  id="import-base-name"
-                  type="text"
-                  value={baseName}
-                  onChange={(e) => setBaseName(e.target.value)}
-                  placeholder={BASE_NAME_PLACEHOLDER}
-                  autoFocus
-                  className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2.5 text-sm placeholder:text-muted focus:border-primary"
-                />
-                <p className="mt-1.5 text-xs text-muted">
-                  Dica: use região e nicho para identificar depois ao apagar ou
-                  trocar de base. O nome é livre — escolha como preferir.
-                </p>
-              </div>
-            )}
-
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-auto flex justify-end gap-2 border-t border-border-subtle px-5 py-4">
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => {
-                  setPendingFile(null);
-                  setBaseName("");
-                }}
-                className="rounded-md px-4 py-2 text-sm text-muted hover:text-ink disabled:opacity-60"
+                onClick={closeDialog}
+                className="rounded-md px-4 py-2.5 text-sm text-muted hover:text-ink disabled:opacity-60"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 disabled={loading || !canImport}
-                onClick={() =>
-                  runImport(pendingFile, importMode, baseName)
-                }
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+                onClick={() => runImport(pendingFile, importMode, baseName)}
+                className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
               >
                 {loading ? "Importando…" : "Importar"}
               </button>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </dialog>
 
-      {message && !pendingFile && (
-        <p
-          role="status"
-          className="sillion-card fixed left-1/2 top-20 z-40 w-[min(calc(100vw-2rem),300px)] -translate-x-1/2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs leading-relaxed text-muted sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-max sm:max-w-[300px] sm:translate-x-0"
-        >
-          {message}
-        </p>
-      )}
-    </div>
+      {message &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <p
+            role="status"
+            className="sillion-card fixed bottom-6 left-1/2 z-[100] w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 rounded-lg border border-border bg-surface-elevated px-4 py-3 text-center text-sm leading-relaxed text-ink shadow-lg"
+          >
+            {message}
+          </p>,
+          document.body
+        )}
+    </>
   );
 }

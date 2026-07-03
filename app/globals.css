@@ -104,6 +104,10 @@ body {
   overflow-y: auto;
 }
 
+.sillion-dialog--import {
+  width: min(calc(100vw - 2rem), 32rem);
+}
+
 ::selection {
   background: oklch(0.62 0.21 295 / 0.35);
 }
