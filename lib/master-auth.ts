@@ -3,20 +3,29 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const MASTER_COOKIE = "sillion_master_session";
-const MASTER_JWT_SECRET = new TextEncoder().encode(
-  process.env.MASTER_JWT_SECRET ??
-    process.env.JWT_SECRET ??
-    "sillion-master-dev-secret-change-in-production"
-);
 
-/** Usuário master — credencial via env em produção */
-const MASTER_USERNAME =
-  process.env.MASTER_USERNAME?.trim() || "MatheusBraga";
-
-/** Hash bcrypt da senha master (nunca armazene senha em texto no código) */
-const MASTER_PASSWORD_HASH =
-  process.env.MASTER_PASSWORD_HASH ||
+const DEFAULT_MASTER_USERNAME = "MatheusBraga";
+const DEFAULT_MASTER_PASSWORD_HASH =
   "$2b$10$877n8c6eCWWZo/qVBTcKvOoYGRDcXluE86P7hccwhGude7Cqj2Zau";
+
+/** Lê env em runtime — evita que o Next.js congele credenciais no `next build`. */
+function getMasterUsername() {
+  const fromEnv = process.env["MASTER_USERNAME"]?.trim();
+  return fromEnv || DEFAULT_MASTER_USERNAME;
+}
+
+function getMasterPasswordHash() {
+  const fromEnv = process.env["MASTER_PASSWORD_HASH"]?.trim();
+  return fromEnv || DEFAULT_MASTER_PASSWORD_HASH;
+}
+
+function getMasterJwtSecret() {
+  const secret =
+    process.env["MASTER_JWT_SECRET"]?.trim() ||
+    process.env["JWT_SECRET"]?.trim() ||
+    "sillion-master-dev-secret-change-in-production";
+  return new TextEncoder().encode(secret);
+}
 
 export interface MasterSession {
   username: string;
@@ -32,9 +41,9 @@ export async function authenticateMaster(
   password: string
 ): Promise<MasterSession | null> {
   const normalized = normalizeMasterUsername(username);
-  if (normalized !== MASTER_USERNAME) return null;
+  if (normalized !== getMasterUsername()) return null;
 
-  const valid = await bcrypt.compare(password, MASTER_PASSWORD_HASH);
+  const valid = await bcrypt.compare(password, getMasterPasswordHash());
   if (!valid) return null;
 
   return { username: normalized, role: "master" };
@@ -48,7 +57,7 @@ export async function createMasterSession(session: MasterSession) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("8h")
-    .sign(MASTER_JWT_SECRET);
+    .sign(getMasterJwtSecret());
 
   const cookieStore = await cookies();
   cookieStore.set(MASTER_COOKIE, token, {
@@ -71,7 +80,7 @@ export async function getMasterSession(): Promise<MasterSession | null> {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, MASTER_JWT_SECRET);
+    const { payload } = await jwtVerify(token, getMasterJwtSecret());
     if (payload.role !== "master") return null;
     return {
       username: payload.username as string,
