@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { useSecureCookies } from "@/lib/cookie-secure";
+import { shouldUseSecureCookies } from "@/lib/cookie-secure";
 
 const MASTER_COOKIE = "sillion_master_session";
 
@@ -63,7 +63,7 @@ export async function createMasterSession(session: MasterSession) {
   const cookieStore = await cookies();
   cookieStore.set(MASTER_COOKIE, token, {
     httpOnly: true,
-    secure: useSecureCookies(),
+    secure: shouldUseSecureCookies(),
     sameSite: "strict",
     path: "/",
     maxAge: 60 * 60 * 8,
