@@ -1,4 +1,4 @@
-/** PM2 — produção com domínio + HTTPS (cookies secure) */
+/** PM2 — acesso só por IP, sem SSL (cookies sem secure) */
 module.exports = {
   apps: [
     {
@@ -10,7 +10,7 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "3000",
         HOSTNAME: "127.0.0.1",
-        COOKIE_SECURE: "true",
+        COOKIE_SECURE: "false",
       },
     },
   ],

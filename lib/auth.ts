@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { useSecureCookies } from "@/lib/cookie-secure";
 import { readJsonFile, writeJsonFile } from "./storage";
 import {
   DEFAULT_MESSAGE_TEMPLATE,
@@ -230,7 +231,7 @@ export async function createSession(user: SessionUser) {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookies(),
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
