@@ -38,7 +38,8 @@ if [[ "$MODE" == "ip" ]]; then
   CONF_SRC="$APP_DIR/deploy/nginx/sillion-ip.conf"
   CONF_BODY="$(sed "s/SEU_IP/$TARGET/g" "$CONF_SRC")"
   PM2_CONFIG="deploy/ecosystem.ip.config.cjs"
-  echo "==> Modo IP: http://$TARGET"
+  PUBLIC_PORT=8080
+  echo "==> Modo IP: http://$TARGET:$PUBLIC_PORT"
 else
   if [[ -z "$TARGET" ]]; then
     echo "Informe o domínio:"
@@ -90,19 +91,25 @@ if command -v pm2 &>/dev/null; then
   pm2 delete sillion 2>/dev/null || true
   pm2 start "$PM2_CONFIG"
   pm2 save
-  echo "==> PM2 reiniciado (127.0.0.1:3000)"
+  if [[ "$MODE" == "ip" ]]; then
+    echo "==> PM2 reiniciado (127.0.0.1:3003)"
+  else
+    echo "==> PM2 reiniciado (127.0.0.1:3000)"
+  fi
 fi
 
 if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
-  ufw allow 80/tcp
-  ufw deny 3000/tcp || true
-  if [[ "$MODE" == "dominio" ]]; then
+  if [[ "$MODE" == "ip" ]]; then
+    ufw allow 8080/tcp
+  else
+    ufw allow 80/tcp
     ufw allow 443/tcp
   fi
 elif command -v firewall-cmd &>/dev/null && systemctl is-active firewalld &>/dev/null; then
-  firewall-cmd --permanent --add-service=http
-  firewall-cmd --permanent --remove-port=3000/tcp 2>/dev/null || true
-  if [[ "$MODE" == "dominio" ]]; then
+  if [[ "$MODE" == "ip" ]]; then
+    firewall-cmd --permanent --add-port=8080/tcp
+  else
+    firewall-cmd --permanent --add-service=http
     firewall-cmd --permanent --add-service=https
   fi
   firewall-cmd --reload
@@ -110,7 +117,7 @@ fi
 
 if [[ "$MODE" == "ip" ]]; then
   echo ""
-  echo "Pronto! Acesse: http://$TARGET"
+  echo "Pronto! Acesse: http://$TARGET:8080"
   echo ""
   echo "Sem domínio não há HTTPS gratuito. COOKIE_SECURE=false já está no PM2 (modo IP)."
   echo "Quando tiver domínio: sudo bash deploy/nginx/install.sh dominio seu.dominio.com.br"
