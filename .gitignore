@@ -3,7 +3,9 @@
 /out/
 /data/*.json
 !.gitkeep
-.env*.local
+.env
+.env.*
+!.env.example
 npm-debug.log*
 .DS_Store
 *.pem

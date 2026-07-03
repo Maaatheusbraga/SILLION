@@ -9,18 +9,30 @@ const DEFAULT_MASTER_USERNAME = "MatheusBraga";
 const DEFAULT_MASTER_PASSWORD_HASH =
   "$2b$10$877n8c6eCWWZo/qVBTcKvOoYGRDcXluE86P7hccwhGude7Cqj2Zau";
 
+function normalizeEnvValue(value: string) {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 /** Lê env em runtime — evita que o Next.js congele credenciais no `next build`. */
 function getMasterUsername() {
   const fromEnv = process.env["MASTER_USERNAME"]?.trim();
-  return fromEnv || DEFAULT_MASTER_USERNAME;
+  return fromEnv ? normalizeEnvValue(fromEnv) : DEFAULT_MASTER_USERNAME;
 }
 
 function getMasterPasswordHash() {
-  const fromEnv = process.env["MASTER_PASSWORD_HASH"]?.trim();
+  const raw = process.env["MASTER_PASSWORD_HASH"]?.trim();
+  const fromEnv = raw ? normalizeEnvValue(raw) : "";
   if (fromEnv) {
     if (!fromEnv.startsWith("$2") || fromEnv.length < 59) {
       console.error(
-        "[master-auth] MASTER_PASSWORD_HASH inválido ou truncado — use aspas no .env.production ou rode: npm run master:set -- SUA_SENHA"
+        "[master-auth] MASTER_PASSWORD_HASH inválido ou truncado — verifique .env.local (sobrescreve .env.production) ou rode: npm run master:set -- SUA_SENHA"
       );
     }
     return fromEnv;

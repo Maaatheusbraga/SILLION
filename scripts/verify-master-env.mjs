@@ -1,47 +1,46 @@
 import bcrypt from "bcryptjs";
-import { readFileSync, existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
+import { loadMergedProductionEnv, parseEnvFile } from "./lib/env-files.mjs";
 
 const password = process.argv[2];
-const envPath = path.join(process.cwd(), ".env.production");
+const cwd = process.cwd();
+const productionPath = path.join(cwd, ".env.production");
+const localPath = path.join(cwd, ".env.local");
 
-function parseEnv(content) {
-  const vars = {};
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let val = trimmed.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    vars[key] = val;
-  }
-  return vars;
-}
-
-if (!existsSync(envPath)) {
+if (!existsSync(productionPath)) {
   console.error("Arquivo .env.production não encontrado.");
   process.exit(1);
 }
 
-const vars = parseEnv(readFileSync(envPath, "utf-8"));
-const username = vars.MASTER_USERNAME ?? "(não definido)";
-const hash = vars.MASTER_PASSWORD_HASH ?? "";
+console.log("=== O que o Next.js realmente usa (produção) ===");
+const merged = loadMergedProductionEnv(cwd);
+const username = merged.MASTER_USERNAME ?? "(não definido)";
+const hash = merged.MASTER_PASSWORD_HASH ?? "";
 
 console.log("MASTER_USERNAME:", username);
 console.log("MASTER_PASSWORD_HASH length:", hash.length);
 console.log("MASTER_PASSWORD_HASH prefix:", hash.slice(0, 7) || "(vazio)");
-console.log("COOKIE_SECURE:", vars.COOKIE_SECURE ?? "(não definido)");
+console.log("COOKIE_SECURE:", merged.COOKIE_SECURE ?? "(não definido)");
+
+if (existsSync(localPath)) {
+  const local = parseEnvFile(readFileSync(localPath, "utf-8"));
+  const localMaster = ["MASTER_USERNAME", "MASTER_PASSWORD_HASH", "MASTER_JWT_SECRET"].filter(
+    (k) => k in local
+  );
+  if (localMaster.length > 0) {
+    console.warn(
+      "\nAVISO: .env.local ainda define:",
+      localMaster.join(", "),
+      "— isso SOBRESCREVE .env.production no next start."
+    );
+    console.warn("Rode: npm run master:set -- SUA_SENHA (remove automaticamente)");
+  }
+}
 
 if (!hash.startsWith("$2")) {
   console.error(
-    "\nERRO: hash inválido — o Next.js corrompe bcrypt sem aspas no .env."
+    "\nERRO: hash inválido no runtime — provavelmente .env.local corrompeu o bcrypt."
   );
   console.error("Corrija com: npm run master:set -- SUA_SENHA");
   process.exit(1);
@@ -55,7 +54,7 @@ if (hash.length < 59) {
 
 if (password) {
   const valid = await bcrypt.compare(password, hash);
-  console.log("\nTeste de senha:", valid ? "OK" : "FALHOU");
+  console.log("\nTeste de senha (runtime):", valid ? "OK" : "FALHOU");
   process.exit(valid ? 0 : 1);
 }
 
