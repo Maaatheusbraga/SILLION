@@ -19,7 +19,7 @@ Usuários são criados pelo **painel master** em `/master/login`. Contas existen
 
 URL: **`/master/login`** — acesso restrito para criar/remover logins do CRM.
 
-Credenciais configuráveis via `.env.local` (`MASTER_USERNAME`, `MASTER_PASSWORD_HASH`). Senhas hasheadas com bcrypt; a API nunca devolve hashes.
+Credenciais configuráveis via `data/master-auth.json` (produção) ou `.env.local` (dev). Senhas hasheadas com bcrypt; a API nunca devolve hashes. Ver [deploy/DEPLOY.md](./deploy/DEPLOY.md).
 
 ## Fluxo principal
 
@@ -45,3 +45,18 @@ Arquivos em `data/` (`leads.json`, `datasets.json`, `users.json`). Faça backup 
 Next.js 15 · React 19 · Tailwind CSS 4 · @dnd-kit · xlsx
 
 Escopo completo: [PRODUCT.md](./PRODUCT.md)
+
+## Deploy (VPS)
+
+Produção na VPS compartilhada: **porta 8080** (Nginx) → **3003** (PM2). Guia completo:
+
+**[deploy/DEPLOY.md](./deploy/DEPLOY.md)**
+
+Comandos essenciais na VPS:
+
+```bash
+cd /opt/sillion
+git pull && npm run build && npm run deploy:restart-ip
+npm run master:set -- 'SUA_SENHA'   # credenciais master
+npm run master:test-login -- 'SUA_SENHA'
+```
