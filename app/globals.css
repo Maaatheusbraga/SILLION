@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/* ── Dark (default) — identidade roxa SILLION ── */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --sillion-bg: oklch(0.07 0.025 295);
+  --sillion-surface: oklch(0.11 0.035 295);
+  --sillion-surface-elevated: oklch(0.15 0.04 295);
+  --sillion-surface-hover: oklch(0.18 0.045 295);
+  --sillion-ink: oklch(0.96 0.008 295);
+  --sillion-muted: oklch(0.68 0.03 295);
+  --sillion-primary: oklch(0.62 0.21 295);
+  --sillion-primary-hover: oklch(0.67 0.22 295);
+  --sillion-accent: oklch(0.75 0.14 330);
+  --sillion-accent-muted: oklch(0.75 0.14 330 / 0.14);
+  --sillion-danger: oklch(0.58 0.17 25);
+  --sillion-success: oklch(0.65 0.14 155);
+  --sillion-border: oklch(0.28 0.04 295);
+  --sillion-border-subtle: oklch(0.22 0.03 295);
+  --sillion-shadow: 0 1px 0 oklch(1 0 0 / 0.05), 0 12px 32px oklch(0.05 0.04 295 / 0.55);
+  --sillion-gradient: radial-gradient(
+    ellipse 70% 60% at 10% -10%,
+    oklch(0.62 0.21 295 / 0.22),
+    transparent 55%
+  );
+}
+
+/* ── Light — mesmo DNA roxo, superfície clara ── */
+[data-theme="light"] {
+  color-scheme: light;
+  --sillion-bg: oklch(1 0 0);
+  --sillion-surface: oklch(0.975 0.008 295);
+  --sillion-surface-elevated: oklch(1 0 0);
+  --sillion-surface-hover: oklch(0.955 0.012 295);
+  --sillion-ink: oklch(0.18 0.03 295);
+  --sillion-muted: oklch(0.48 0.04 295);
+  --sillion-primary: oklch(0.48 0.22 295);
+  --sillion-primary-hover: oklch(0.42 0.23 295);
+  --sillion-accent: oklch(0.55 0.18 330);
+  --sillion-accent-muted: oklch(0.55 0.18 330 / 0.1);
+  --sillion-danger: oklch(0.52 0.19 25);
+  --sillion-success: oklch(0.48 0.14 155);
+  --sillion-border: oklch(0.88 0.02 295);
+  --sillion-border-subtle: oklch(0.93 0.015 295);
+  --sillion-shadow: 0 1px 0 oklch(0.48 0.22 295 / 0.06), 0 8px 24px oklch(0.18 0.03 295 / 0.08);
+  --sillion-gradient: radial-gradient(
+    ellipse 60% 50% at 100% 0%,
+    oklch(0.48 0.22 295 / 0.1),
+    transparent 50%
+  );
+}
+
+@theme inline {
+  --color-bg: var(--sillion-bg);
+  --color-surface: var(--sillion-surface);
+  --color-surface-elevated: var(--sillion-surface-elevated);
+  --color-surface-hover: var(--sillion-surface-hover);
+  --color-ink: var(--sillion-ink);
+  --color-muted: var(--sillion-muted);
+  --color-primary: var(--sillion-primary);
+  --color-primary-hover: var(--sillion-primary-hover);
+  --color-accent: var(--sillion-accent);
+  --color-accent-muted: var(--sillion-accent-muted);
+  --color-danger: var(--sillion-danger);
+  --color-success: var(--sillion-success);
+  --color-border: var(--sillion-border);
+  --color-border-subtle: var(--sillion-border-subtle);
+  --font-display: var(--font-syne);
+  --font-body: var(--font-dm-sans);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  background: var(--sillion-bg);
+  background-image: var(--sillion-gradient);
+  background-attachment: fixed;
+  color: var(--sillion-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.sillion-dialog {
+  width: min(calc(100vw - 2rem), 28rem);
+  max-height: min(90dvh, 100%);
+  margin: auto;
+  overflow-y: auto;
+}
+
+::selection {
+  background: oklch(0.62 0.21 295 / 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sillion-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html {
+    transition: none;
+  }
+}
+
+.sillion-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.sillion-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sillion-border) transparent;
+}
+
+.sillion-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.sillion-scroll::-webkit-scrollbar-thumb {
+  background: var(--sillion-border);
+  border-radius: 999px;
+}
+
+.sillion-card {
+  box-shadow: var(--sillion-shadow);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
+}
