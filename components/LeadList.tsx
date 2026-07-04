@@ -5,11 +5,21 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useLeads } from "@/lib/hooks/useLeads";
 import { isFollowUpDue } from "@/lib/followup";
+import {
+  computeLeadScore,
+  getScoreTier,
+  isHighOpportunityLead,
+} from "@/lib/lead-score";
 import type { InteractionChannel, Lead, LeadStatus } from "@/lib/types";
 import { STATUS_LABELS } from "@/lib/types";
 import { LeadPanel } from "./LeadPanel";
+import { LeadScoreBadge } from "./LeadScoreBadge";
+import { ListStatsBar } from "./ListStatsBar";
 import { QuickContactModal } from "./QuickContactModal";
 import { StatusBadge } from "./StatusBadge";
+import { WebPresenceBadge } from "./WebPresenceBadge";
+
+type SortKey = "score" | "title" | "reviews";
 
 export function LeadList() {
   const searchParams = useSearchParams();
@@ -18,6 +28,8 @@ export function LeadList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [cardFilter, setCardFilter] = useState<"all" | "cards" | "imported">("all");
+  const [sortBy, setSortBy] = useState<SortKey>("score");
+  const [highOppOnly, setHighOppOnly] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [contactLead, setContactLead] = useState<Lead | null>(null);
   const [promoting, setPromoting] = useState<string | null>(null);
@@ -28,6 +40,7 @@ export function LeadList() {
       if (followupFilter && !isFollowUpDue(lead)) return false;
       if (followupFilter && (lead.status === "convertido" || lead.status === "descartado"))
         return false;
+      if (highOppOnly && !isHighOpportunityLead(lead)) return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
       if (cardFilter === "cards" && !lead.isCard) return false;
       if (cardFilter === "imported" && lead.isCard) return false;
@@ -41,7 +54,21 @@ export function LeadList() {
       }
       return true;
     });
-  }, [leads, search, statusFilter, cardFilter, followupFilter]);
+  }, [leads, search, statusFilter, cardFilter, followupFilter, highOppOnly]);
+
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    if (sortBy === "score") {
+      list.sort((a, b) => computeLeadScore(b) - computeLeadScore(a));
+    } else if (sortBy === "reviews") {
+      list.sort(
+        (a, b) => (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0)
+      );
+    } else {
+      list.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    }
+    return list;
+  }, [filtered, sortBy]);
 
   async function promote(id: string) {
     setPromoting(id);
@@ -111,7 +138,7 @@ export function LeadList() {
           <div>
             <h1 className="sillion-display text-xl font-bold sm:text-2xl">Lista</h1>
             <p className="mt-0.5 text-sm text-muted text-pretty">
-              {filtered.length} de {leads.length} leads
+              {sorted.length} de {leads.length} leads
               {activeDataset && (
                 <>
                   {" "}
@@ -171,6 +198,30 @@ export function LeadList() {
         </div>
       </header>
 
+      {leads.length > 0 && <ListStatsBar leads={leads} />}
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            checked={highOppOnly}
+            onChange={(e) => setHighOppOnly(e.target.checked)}
+            className="rounded border-border"
+          />
+          <span className="text-ink">Só alta oportunidade</span>
+        </label>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortKey)}
+          className="rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm"
+          aria-label="Ordenar lista"
+        >
+          <option value="score">Maior oportunidade</option>
+          <option value="reviews">Mais avaliações</option>
+          <option value="title">Nome A–Z</option>
+        </select>
+      </div>
+
       {leads.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
           <LayoutList size={32} className="mb-4 text-muted" aria-hidden />
@@ -185,15 +236,24 @@ export function LeadList() {
         </p>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((lead, index) => (
+          {sorted.map((lead, index) => {
+            const score = computeLeadScore(lead);
+            const tier = getScoreTier(score);
+            return (
             <li
               key={lead.id}
               className="sillion-card flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
               style={{ animationDelay: `${Math.min(index, 6) * 30}ms` }}
             >
+              <div className="flex min-w-0 flex-1 gap-3">
+                <LeadScoreBadge score={score} tier={tier} compact />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={lead.status} />
+                  <WebPresenceBadge
+                    presence={lead.webPresence}
+                    website={lead.website}
+                  />
                   {!lead.isCard && (
                     <span className="rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-xs text-muted">
                       Estoque
@@ -222,6 +282,7 @@ export function LeadList() {
                   {lead.ownerName && <span>{lead.ownerName}</span>}
                 </div>
               </div>
+              </div>
 
               <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                 {canContact(lead) ? (
@@ -247,7 +308,8 @@ export function LeadList() {
                 ) : null}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

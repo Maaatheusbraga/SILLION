@@ -3,9 +3,12 @@
 import { FileSpreadsheet, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { ImportPreviewResult } from "@/lib/import-preview";
 import { useLeads } from "@/lib/hooks/useLeads";
+import { ImportPreviewPanel } from "./ImportPreviewPanel";
 
 type ImportMode = "active" | "new";
+type ImportStep = "config" | "preview";
 
 const BASE_NAME_PLACEHOLDER = "Ex.: João Pessoa · Clínicas de estética";
 
@@ -15,10 +18,13 @@ export function ImportButton() {
   const { refresh, activeDatasetId, activeDataset, setActiveDatasetId } =
     useLeads();
   const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [importMode, setImportMode] = useState<ImportMode>("new");
   const [baseName, setBaseName] = useState("");
+  const [step, setStep] = useState<ImportStep>("config");
+  const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
 
   const dialogOpen = pendingFile !== null;
 
@@ -29,11 +35,58 @@ export function ImportButton() {
     if (!dialogOpen && dialog.open) dialog.close();
   }, [dialogOpen]);
 
-  function closeDialog() {
-    if (loading) return;
+  function resetDialog() {
     setPendingFile(null);
     setBaseName("");
     setImportMode("new");
+    setStep("config");
+    setPreview(null);
+  }
+
+  function closeDialog() {
+    if (loading || previewLoading) return;
+    resetDialog();
+  }
+
+  const canPreview =
+    importMode === "active"
+      ? !!activeDatasetId
+      : baseName.trim().length > 0;
+
+  async function fetchPreview(file: File) {
+    setPreviewLoading(true);
+    setPreview(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    if (importMode === "active" && activeDatasetId) {
+      formData.append("datasetId", activeDatasetId);
+    }
+
+    try {
+      const res = await fetch("/api/leads/import/preview", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error ?? "Erro na pré-visualização.");
+        return null;
+      }
+      setPreview(data.preview);
+      return data.preview as ImportPreviewResult;
+    } catch {
+      setMessage("Falha ao analisar planilha.");
+      return null;
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function goToPreview() {
+    if (!pendingFile || !canPreview) return;
+    const result = await fetchPreview(pendingFile);
+    if (result) setStep("preview");
   }
 
   async function runImport(file: File, mode: ImportMode, name: string) {
@@ -75,9 +128,7 @@ export function ImportButton() {
       ].filter(Boolean);
 
       setMessage(parts.join(" · "));
-      setPendingFile(null);
-      setBaseName("");
-      setImportMode("new");
+      resetDialog();
       await refresh();
     } catch {
       setMessage("Falha ao importar arquivo.");
@@ -91,13 +142,10 @@ export function ImportButton() {
     setPendingFile(file);
     setImportMode("new");
     setBaseName("");
+    setStep("config");
+    setPreview(null);
     setMessage(null);
   }
-
-  const canImport =
-    importMode === "active"
-      ? !!activeDatasetId
-      : baseName.trim().length > 0;
 
   return (
     <>
@@ -140,13 +188,15 @@ export function ImportButton() {
                   id="import-dialog-title"
                   className="mt-1 text-lg font-semibold text-balance"
                 >
-                  Onde salvar os leads?
+                  {step === "config"
+                    ? "Onde salvar os leads?"
+                    : "Confirmar importação"}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={closeDialog}
-                disabled={loading}
+                disabled={loading || previewLoading}
                 className="rounded-md p-1 text-muted hover:bg-surface-elevated hover:text-ink disabled:opacity-60"
                 aria-label="Fechar"
               >
@@ -154,7 +204,7 @@ export function ImportButton() {
               </button>
             </div>
 
-            <div className="space-y-5 px-5 py-5">
+            <div className="space-y-5 overflow-y-auto px-5 py-5">
               <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-3">
                 <FileSpreadsheet
                   size={22}
@@ -169,94 +219,137 @@ export function ImportButton() {
                 </div>
               </div>
 
-              <fieldset className="space-y-2">
-                <legend className="mb-1 text-sm font-medium text-ink">
-                  Destino da importação
-                </legend>
+              {step === "config" ? (
+                <>
+                  <fieldset className="space-y-2">
+                    <legend className="mb-1 text-sm font-medium text-ink">
+                      Destino da importação
+                    </legend>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
-                  <input
-                    type="radio"
-                    name="importMode"
-                    checked={importMode === "new"}
-                    onChange={() => setImportMode("new")}
-                    className="mt-1"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-ink">
-                      Nova base
-                    </span>
-                    <span className="mt-1 block text-sm leading-relaxed text-muted">
-                      Cria uma partição isolada — ideal para campanha ou região
-                      diferente.
-                    </span>
-                  </span>
-                </label>
-
-                {activeDatasetId && (
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
-                    <input
-                      type="radio"
-                      name="importMode"
-                      checked={importMode === "active"}
-                      onChange={() => setImportMode("active")}
-                      className="mt-1"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-ink">
-                        Adicionar à base atual
+                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
+                      <input
+                        type="radio"
+                        name="importMode"
+                        checked={importMode === "new"}
+                        onChange={() => {
+                          setImportMode("new");
+                          setPreview(null);
+                        }}
+                        className="mt-1"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-ink">
+                          Nova base
+                        </span>
+                        <span className="mt-1 block text-sm leading-relaxed text-muted">
+                          Partição isolada — ideal para campanha ou região
+                          diferente.
+                        </span>
                       </span>
-                      <span className="mt-1 block text-sm leading-relaxed text-muted">
-                        {activeDataset
-                          ? `Unifica com "${activeDataset.name}" (${activeDataset.leadCount} leads). Duplicados por place_id são ignorados.`
-                          : "Base ativa selecionada no topo."}
-                      </span>
-                    </span>
-                  </label>
-                )}
-              </fieldset>
+                    </label>
 
-              {importMode === "new" && (
-                <div>
-                  <label
-                    htmlFor="import-base-name"
-                    className="mb-1.5 block text-sm font-medium text-ink"
-                  >
-                    Nome da base
-                  </label>
-                  <input
-                    id="import-base-name"
-                    type="text"
-                    value={baseName}
-                    onChange={(e) => setBaseName(e.target.value)}
-                    placeholder={BASE_NAME_PLACEHOLDER}
-                    autoFocus
-                    className="w-full rounded-md border border-border bg-surface-elevated px-3 py-3 text-sm placeholder:text-muted focus:border-primary"
-                  />
-                  <p className="mt-2 text-xs leading-relaxed text-muted">
-                    Use região e nicho para achar depois no seletor de bases.
-                  </p>
-                </div>
+                    {activeDatasetId && (
+                      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-4 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
+                        <input
+                          type="radio"
+                          name="importMode"
+                          checked={importMode === "active"}
+                          onChange={() => {
+                            setImportMode("active");
+                            setPreview(null);
+                          }}
+                          className="mt-1"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-ink">
+                            Adicionar à base atual
+                          </span>
+                          <span className="mt-1 block text-sm leading-relaxed text-muted">
+                            {activeDataset
+                              ? `Unifica com "${activeDataset.name}" (${activeDataset.leadCount} leads).`
+                              : "Base ativa selecionada no topo."}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                  </fieldset>
+
+                  {importMode === "new" && (
+                    <div>
+                      <label
+                        htmlFor="import-base-name"
+                        className="mb-1.5 block text-sm font-medium text-ink"
+                      >
+                        Nome da base
+                      </label>
+                      <input
+                        id="import-base-name"
+                        type="text"
+                        value={baseName}
+                        onChange={(e) => {
+                          setBaseName(e.target.value);
+                          setPreview(null);
+                        }}
+                        placeholder={BASE_NAME_PLACEHOLDER}
+                        autoFocus
+                        className="w-full rounded-md border border-border bg-surface-elevated px-3 py-3 text-sm placeholder:text-muted focus:border-primary"
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                preview && (
+                  <ImportPreviewPanel preview={preview} loading={previewLoading} />
+                )
               )}
             </div>
 
             <div className="mt-auto flex justify-end gap-2 border-t border-border-subtle px-5 py-4">
+              {step === "preview" ? (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setStep("config")}
+                  className="mr-auto rounded-md px-4 py-2.5 text-sm text-muted hover:text-ink disabled:opacity-60"
+                >
+                  Voltar
+                </button>
+              ) : null}
               <button
                 type="button"
-                disabled={loading}
+                disabled={loading || previewLoading}
                 onClick={closeDialog}
                 className="rounded-md px-4 py-2.5 text-sm text-muted hover:text-ink disabled:opacity-60"
               >
                 Cancelar
               </button>
-              <button
-                type="button"
-                disabled={loading || !canImport}
-                onClick={() => runImport(pendingFile, importMode, baseName)}
-                className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
-              >
-                {loading ? "Importando…" : "Importar"}
-              </button>
+              {step === "config" ? (
+                <button
+                  type="button"
+                  disabled={previewLoading || !canPreview}
+                  onClick={goToPreview}
+                  className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+                >
+                  {previewLoading ? "Analisando…" : "Pré-visualizar"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    loading ||
+                    !preview ||
+                    preview.willImport === 0
+                  }
+                  onClick={() =>
+                    runImport(pendingFile, importMode, baseName)
+                  }
+                  className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+                >
+                  {loading
+                    ? "Importando…"
+                    : `Importar ${preview?.willImport ?? 0} leads`}
+                </button>
+              )}
             </div>
           </>
         )}

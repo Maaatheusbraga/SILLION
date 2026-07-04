@@ -10,14 +10,18 @@ import {
   Send,
   Star,
   X,
+  Globe,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { buildContactMessage } from "@/lib/messages";
+import { computeLeadScore, getOpportunityHint, getScoreTier } from "@/lib/lead-score";
 import { whatsAppUrl } from "@/lib/utils";
 import type { InteractionChannel, Lead, SessionUser } from "@/lib/types";
 import { CHANNEL_LABELS, DEFAULT_MESSAGE_TEMPLATE } from "@/lib/types";
 import { DatePickerPtBR } from "./DatePickerPtBR";
 import { StatusBadge } from "./StatusBadge";
+import { LeadScoreBadge } from "./LeadScoreBadge";
+import { WebPresenceBadge } from "./WebPresenceBadge";
 import { formatDateTimeBR } from "@/lib/dates";
 
 interface LeadPanelProps {
@@ -119,6 +123,9 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
   }
 
   const wa = whatsAppUrl(lead.phone, contactMessage || undefined);
+  const leadScore = computeLeadScore(lead);
+  const scoreTier = getScoreTier(leadScore);
+  const opportunityHint = getOpportunityHint(lead);
 
   return (
     <>
@@ -156,6 +163,21 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
         </div>
 
         <div className="sillion-scroll flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-5">
+          <section className="flex flex-wrap items-start gap-3">
+            <LeadScoreBadge score={leadScore} tier={scoreTier} />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <WebPresenceBadge
+                  presence={lead.webPresence}
+                  website={lead.website}
+                />
+              </div>
+              <p className="text-xs font-medium text-primary">
+                {opportunityHint}
+              </p>
+            </div>
+          </section>
+
           <section className="space-y-2 text-sm">
             {lead.phone && (
               <p className="flex items-center gap-2 text-ink">
@@ -173,6 +195,19 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
               <p className="flex items-center gap-2 text-muted">
                 <Star size={15} className="shrink-0 text-accent" aria-hidden />
                 {lead.totalScore.toFixed(1)} · {lead.reviewsCount ?? 0} avaliações
+              </p>
+            )}
+            {lead.website && (
+              <p className="flex items-center gap-2 text-muted">
+                <Globe size={15} className="shrink-0" aria-hidden />
+                <a
+                  href={lead.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-primary hover:underline"
+                >
+                  {lead.website.replace(/^https?:\/\//, "")}
+                </a>
               </p>
             )}
           </section>

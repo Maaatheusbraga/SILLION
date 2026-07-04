@@ -8,6 +8,13 @@ export type LeadStatus =
 
 export type InteractionChannel = "whatsapp" | "ligacao" | "email";
 
+export type WebPresence =
+  | "none"
+  | "instagram"
+  | "own_site"
+  | "social"
+  | "unknown";
+
 export type ThemeMode = "dark" | "light";
 
 export interface Interaction {
@@ -46,6 +53,8 @@ export interface Lead {
   postalCode: string;
   totalScore: number | null;
   reviewsCount: number | null;
+  website: string;
+  webPresence: WebPresence;
   status: LeadStatus;
   isCard: boolean;
   /** @deprecated use comments */

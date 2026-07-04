@@ -1,10 +1,14 @@
 import { v4 as uuidv4 } from "uuid";
 import { readJsonFile, writeJsonFile } from "./storage";
+import {
+  classifyWebPresence,
+  normalizeWebsiteUrl,
+} from "./web-presence";
 import type { Comment, Interaction, InteractionChannel, Lead, LeadStatus } from "./types";
 
 const LEADS_FILE = "leads.json";
 
-function normalizeLead(raw: Lead): Lead {
+function normalizeLead(raw: Lead & { website?: string; webPresence?: Lead["webPresence"] }): Lead {
   const interactions = raw.interactions ?? [];
   let comments: Comment[] = raw.comments ?? [];
 
@@ -20,9 +24,15 @@ function normalizeLead(raw: Lead): Lead {
     ];
   }
 
+  const websiteRaw = raw.website ?? "";
+  const webPresence =
+    raw.webPresence ?? classifyWebPresence(websiteRaw);
+
   return {
     ...raw,
     datasetId: raw.datasetId ?? "",
+    website: normalizeWebsiteUrl(websiteRaw),
+    webPresence,
     interactions,
     comments,
     notes: "",
@@ -30,10 +40,14 @@ function normalizeLead(raw: Lead): Lead {
 }
 
 export async function getLeads(): Promise<Lead[]> {
-  const raw = await readJsonFile<Lead[]>(LEADS_FILE, []);
+  const raw = await readJsonFile<(Lead & { website?: string })[]>(LEADS_FILE, []);
   const leads = raw.map(normalizeLead);
   const needsSave = raw.some(
-    (l) => !l.comments || (l.notes?.trim() && (l.comments?.length ?? 0) === 0)
+    (l) =>
+      !l.comments ||
+      (l.notes?.trim() && (l.comments?.length ?? 0) === 0) ||
+      l.website === undefined ||
+      l.webPresence === undefined
   );
   if (needsSave && leads.length > 0) await saveLeads(leads);
   return leads;
@@ -196,6 +210,7 @@ export interface ImportRow {
   total_score?: number;
   reviews_count?: number;
   place_id?: string;
+  website?: string;
 }
 
 export async function importLeadsFromRows(
@@ -234,6 +249,9 @@ export async function importLeadsFromRows(
       row.phone?.toString().trim() ||
       "";
 
+    const websiteRaw = row.website?.toString().trim() ?? "";
+    const webPresence = classifyWebPresence(websiteRaw);
+
     const now = new Date().toISOString();
     const lead: Lead = {
       id: uuidv4(),
@@ -253,6 +271,8 @@ export async function importLeadsFromRows(
         row.reviews_count != null && !Number.isNaN(Number(row.reviews_count))
           ? Number(row.reviews_count)
           : null,
+      website: normalizeWebsiteUrl(websiteRaw),
+      webPresence,
       status: "importado",
       isCard: false,
       notes: "",

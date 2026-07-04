@@ -105,7 +105,8 @@ body {
 }
 
 .sillion-dialog--import {
-  width: min(calc(100vw - 2rem), 32rem);
+  width: min(calc(100vw - 2rem), 36rem);
+  max-height: min(92dvh, 100%);
 }
 
 ::selection {

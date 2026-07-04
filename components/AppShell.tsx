@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Kanban, LayoutList, LogOut, Settings } from "lucide-react";
+import { Kanban, LayoutDashboard, LayoutList, LogOut, Settings } from "lucide-react";
 import type { SessionUser } from "@/lib/types";
 import { LeadsProvider } from "@/lib/hooks/useLeads";
 import { ImportButton } from "./ImportButton";
@@ -11,6 +11,7 @@ import { FollowUpAlert } from "./FollowUpAlert";
 import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/lista", label: "Lista", icon: LayoutList },
   { href: "/kanban", label: "Kanban", icon: Kanban },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
@@ -51,7 +52,7 @@ function AppShellInner({
       <header className="sticky top-0 z-30 border-b border-border-subtle bg-bg/90 backdrop-blur-md">
         <div className="mx-auto flex h-12 max-w-[1600px] items-center gap-2 px-3 sm:h-14 sm:gap-4 sm:px-6">
           <Link
-            href="/lista"
+            href="/dashboard"
             className="sillion-display shrink-0 text-base font-bold text-ink sm:text-lg"
           >
             SILLION

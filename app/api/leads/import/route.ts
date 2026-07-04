@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { createDataset, ensureDatasetsMigrated, getDatasetById } from "@/lib/datasets";
 import { getSession } from "@/lib/auth";
-import { importLeadsFromRows, type ImportRow } from "@/lib/leads";
+import { importLeadsFromRows } from "@/lib/leads";
+import { parseWorkbookRows } from "@/lib/import-xlsx";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -53,10 +53,7 @@ export async function POST(request: Request) {
   }
 
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<ImportRow>(sheet);
+  const rows = parseWorkbookRows(buffer);
 
   if (rows.length === 0) {
     return NextResponse.json(
