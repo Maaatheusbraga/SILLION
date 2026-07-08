@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { getUserById } from "./auth";
 import { readJsonFile, writeJsonFile } from "./storage";
 import {
   classifyWebPresence,
@@ -90,6 +91,26 @@ export async function promoteToCard(id: string): Promise<Lead | null> {
   return updateLead(id, {
     isCard: true,
     status: "nao_contatado",
+  });
+}
+
+export async function assignLeadOwner(
+  id: string,
+  ownerId: string | null
+): Promise<Lead | null> {
+  const lead = await getLeadById(id);
+  if (!lead || !lead.isCard) return lead ?? null;
+
+  if (!ownerId) {
+    return updateLead(id, { ownerId: null, ownerName: null });
+  }
+
+  const user = await getUserById(ownerId);
+  if (!user) return null;
+
+  return updateLead(id, {
+    ownerId: user.id,
+    ownerName: user.displayName,
   });
 }
 

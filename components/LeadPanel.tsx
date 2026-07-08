@@ -11,6 +11,7 @@ import {
   Star,
   X,
   Globe,
+  User,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { buildContactMessage } from "@/lib/messages";
@@ -30,12 +31,16 @@ interface LeadPanelProps {
   onUpdate: (lead: Lead) => void;
 }
 
+type TeamMember = { id: string; displayName: string; username: string };
+
 export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
   const [commentDraft, setCommentDraft] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [saving, setSaving] = useState(false);
+  const [assigningOwner, setAssigningOwner] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -52,6 +57,14 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
       .then((data) => data?.user && setUser(data.user))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!lead?.isCard) return;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data?.users && setTeam(data.users))
+      .catch(() => {});
+  }, [lead?.isCard]);
 
   const contactMessage = useMemo(() => {
     if (!lead || !user) return "";
@@ -79,6 +92,24 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
       if (res.ok) onUpdate(data.lead);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function assignOwner(ownerId: string) {
+    setAssigningOwner(true);
+    try {
+      const res = await fetch(`/api/leads/${lead!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "assignOwner",
+          ownerId: ownerId || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) onUpdate(data.lead);
+    } finally {
+      setAssigningOwner(false);
     }
   }
 
@@ -146,10 +177,36 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
             <h2 className="mt-2 text-lg font-semibold text-balance leading-snug">
               {lead.title}
             </h2>
-            {lead.ownerName && (
-              <p className="mt-1 text-sm text-muted">
-                Responsável: {lead.ownerName}
-              </p>
+            {lead.isCard ? (
+              <div className="mt-3">
+                <label
+                  htmlFor="lead-owner"
+                  className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted"
+                >
+                  <User size={13} aria-hidden />
+                  Responsável
+                </label>
+                <select
+                  id="lead-owner"
+                  value={lead.ownerId ?? ""}
+                  onChange={(e) => assignOwner(e.target.value)}
+                  disabled={assigningOwner || team.length === 0}
+                  className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-ink disabled:opacity-60"
+                >
+                  <option value="">Sem responsável</option>
+                  {team.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              lead.ownerName && (
+                <p className="mt-1 text-sm text-muted">
+                  Responsável: {lead.ownerName}
+                </p>
+              )
             )}
           </div>
           <button
@@ -350,7 +407,7 @@ export function LeadPanel({ lead, onClose, onUpdate }: LeadPanelProps) {
           )}
         </div>
 
-        {saving && (
+        {(saving || assigningOwner) && (
           <p className="border-t border-border-subtle px-5 py-2 text-xs text-muted">
             Salvando…
           </p>

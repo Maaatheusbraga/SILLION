@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import {
   addComment,
   addInteraction,
+  assignLeadOwner,
   contactLead,
   getLeadById,
   moveLeadStatus,
@@ -87,6 +88,22 @@ export async function PATCH(request: Request, context: RouteContext) {
     const lead = await addComment(id, session, text);
     if (!lead) {
       return NextResponse.json({ error: "Lead não encontrado" }, { status: 404 });
+    }
+    return NextResponse.json({ lead });
+  }
+
+  if (action === "assignOwner") {
+    const ownerId =
+      body.ownerId === null || body.ownerId === ""
+        ? null
+        : body.ownerId?.toString();
+
+    const lead = await assignLeadOwner(id, ownerId);
+    if (!lead) {
+      return NextResponse.json(
+        { error: "Lead ou responsável não encontrado" },
+        { status: 404 }
+      );
     }
     return NextResponse.json({ lead });
   }
