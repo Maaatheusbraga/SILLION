@@ -1,0 +1,7 @@
+# Token do GitHub (só necessário se o repositório for privado).
+# Copie para /opt/sillion/.env.deploy na VPS:
+#   cp deploy/github-token.example .env.deploy
+#
+# Crie o token em: GitHub → Settings → Developer settings → Personal access tokens
+# Permissão mínima: repo (read)
+GITHUB_TOKEN=

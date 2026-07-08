@@ -11,7 +11,8 @@
     "master:set": "node scripts/set-master-env.mjs",
     "master:verify": "node scripts/verify-master-env.mjs",
     "master:test-login": "node scripts/test-master-login.mjs",
-    "deploy:restart-ip": "pm2 delete sillion 2>/dev/null || true && pm2 start deploy/ecosystem.ip.config.cjs && pm2 save"
+    "deploy:restart-ip": "pm2 delete sillion 2>/dev/null || true && pm2 start deploy/ecosystem.ip.config.cjs && pm2 save",
+    "deploy:update-from-github": "bash deploy/update-from-github.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

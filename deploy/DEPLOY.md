@@ -55,7 +55,57 @@ npm run master:test-login -- 'SUA_SENHA_AQUI'
 
 ---
 
-## Atualizar após `git pull`
+## Atualizar na VPS (recomendado — sem `git pull`)
+
+Se o `git pull` falhar por autenticação no GitHub, use o script que baixa o código direto do repositório:
+
+```bash
+cd /opt/sillion
+bash deploy/update-from-github.sh
+```
+
+Ou via npm:
+
+```bash
+cd /opt/sillion
+npm run deploy:update-from-github
+```
+
+O script preserva `data/`, `.env.production` e `.env.local`, depois roda `npm install`, `npm run build` e `deploy:restart-ip`.
+
+### Repositório privado
+
+Crie `/opt/sillion/.env.deploy` (não vai pro Git):
+
+```bash
+cp deploy/github-token.example .env.deploy
+nano .env.deploy
+```
+
+```env
+GITHUB_TOKEN=ghp_seu_token_aqui
+```
+
+Token em: GitHub → Settings → Developer settings → Personal access tokens (permissão **repo** leitura).
+
+### Primeira vez (script ainda não está na VPS)
+
+Envie o script do seu PC:
+
+```powershell
+scp C:\Users\mathe\PROJETOS\SILLION\deploy\update-from-github.sh root@187.77.240.221:/opt/sillion/deploy/
+```
+
+Depois na VPS:
+
+```bash
+chmod +x /opt/sillion/deploy/update-from-github.sh
+bash /opt/sillion/deploy/update-from-github.sh
+```
+
+---
+
+## Atualizar via `git pull` (alternativa)
 
 ```bash
 cd /opt/sillion
